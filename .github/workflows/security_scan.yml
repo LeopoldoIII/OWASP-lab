@@ -1,0 +1,32 @@
+name: OWASP Security Audit Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  docker_security_pipeline:
+    name: Dockerized DevSecOps Security Pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & Launch Docker Services (App + ZAP)
+        run: |
+          docker compose up --build -d app zap
+
+      - name: Run Pytest Unit Tests via Docker
+        run: |
+          docker compose run --rm tester
+
+      - name: Run Master DAST Audit & Report Generator via Docker
+        run: |
+          docker compose run --rm runner
+
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-reports
+          path: reports/

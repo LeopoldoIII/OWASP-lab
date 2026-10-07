@@ -1,0 +1,50 @@
+# OWASP Security Testing Laboratory & DAST Scanner Configuration
+
+# Global Scanner Settings
+scanner:
+  name: "OWASP-Lab-Automated-Scanner"
+  zap_host: "127.0.0.1"
+  zap_port: 8080
+  zap_api_key: ""
+  timeout_seconds: 300
+
+# Target Application Specifications
+# You can define single URLs, multiple endpoints, OpenAPI specs, or microservices
+targets:
+  - id: "local_fastapi_app"
+    name: "OWASP Lab Vulnerable FastAPI App"
+    type: "web_api" # Options: web_app, web_api, openapi_spec, microservice
+    base_url: "http://127.0.0.1:8000"
+    openapi_url: "http://127.0.0.1:8000/openapi.json"
+    description: "Primary lab application containing OWASP Top 10 demonstration endpoints"
+    auth:
+      type: "bearer" # Options: none, bearer, basic, custom_header
+      token: "demo_lab_jwt_token_2026"
+    scope:
+      include_paths:
+        - "/api/.*"
+      exclude_paths:
+        - "/docs"
+        - "/redoc"
+        - "/openapi.json"
+
+  - id: "secondary_demo_service"
+    name: "Secondary Microservice Target Example"
+    type: "web_app"
+    base_url: "http://127.0.0.1:8080"
+    description: "Optional secondary service target for multi-app scanning"
+    auth:
+      type: "none"
+    scope:
+      include_paths:
+        - ".*"
+
+# Reporting Settings
+reporting:
+  output_dir: "./reports"
+  formats:
+    - "html"
+    - "json"
+    - "markdown"
+  include_remediation_guidance: true
+  min_alert_severity: "Low" # Options: Informational, Low, Medium, High, Critical

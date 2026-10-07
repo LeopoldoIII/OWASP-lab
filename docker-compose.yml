@@ -1,0 +1,73 @@
+services:
+  # 1. Vulnerable/Secure FastAPI Laboratory App
+  app:
+    build: .
+    container_name: owasp_lab_app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - ZAP_ADDRESS=zap
+    networks:
+      - owasp_network
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/docs\")' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # 2. OWASP ZAP Daemon (ZAP Proxy)
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: owasp_zap_daemon
+    ports:
+      - "8080:8080"
+    command: zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.addrs.addr.name=".*" -config api.addrs.addr.regex=true -config api.disablekey=true
+    networks:
+      - owasp_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # 3. Master DAST Audit Runner (On-Demand)
+  runner:
+    build: .
+    container_name: owasp_lab_runner
+    command: python run_lab.py --config config.yaml
+    environment:
+      - ZAP_ADDRESS=zap
+      - ZAP_PORT=8080
+      - TARGET_HOST=app
+      - PYTHONPATH=/app
+    volumes:
+      - ./reports:/app/reports
+      - ./config.yaml:/app/config.yaml:ro
+    networks:
+      - owasp_network
+    depends_on:
+      app:
+        condition: service_healthy
+      zap:
+        condition: service_healthy
+
+  # 4. Automated Pytest Test Runner (On-Demand)
+  tester:
+    build: .
+    container_name: owasp_lab_tester
+    command: python -m pytest tests/
+    environment:
+      - ZAP_ADDRESS=zap
+      - PYTHONPATH=/app
+    networks:
+      - owasp_network
+    depends_on:
+      app:
+        condition: service_healthy
+
+networks:
+  owasp_network:
+    driver: bridge
